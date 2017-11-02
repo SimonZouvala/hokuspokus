@@ -5,10 +5,10 @@ from collections import Counter, namedtuple
 
 
 def calculate_number_of_atoms(molecules):
-    counts, number_data, counts_by_bonds, = [], {}, Counter()
-    count_in_molecule, count_by_one = Counter(), []
+    counts, counts_by_bonds, count_by_one = [], Counter(), []
     for name, atoms, bonds in molecules:
         counts += [atoms for atoms in atoms]
+        number_data, count_in_molecule = {}, Counter()
         for i in range(1, len(atoms) + 1):
             number_data[i] = 0
         for i in range(len(bonds)):
@@ -19,47 +19,40 @@ def calculate_number_of_atoms(molecules):
             counts_by_bonds[(atoms[key - 1], number_data[key])] += 1
             count_in_molecule[(atoms[key - 1], number_data[key])] += 1
         count_by_one.append((name, count_in_molecule))
-        number_data, count_in_molecule = {}, Counter()
     counts = Counter(counts)
     return counts, counts_by_bonds, count_by_one
 
 
 def load_file(filename):
-    atoms, bonds, molecule, name = [], [], [], ""
+    molecule, name = [], ""
     Bond = namedtuple('Bond', ['first_atom', 'second_atom', 'bond'])
     with open(filename, "r") as fh:
-        position, lower_position, number_name = 0, 4, 1
-        for line in fh:
-            position += 1
-            if position > 3:
-                if position == 4:
-                    position_bonds, position_atoms = int(line[3:6]), int(
-                                                                    line[0:3])
-                    atoms_rows = (position_atoms + position)
-                    end_position = (atoms_rows + position_bonds + 6)
-                    bonds_rows = (atoms_rows + position_bonds)
-                if position <= atoms_rows and position > lower_position:
-                    atoms.append(line[31:32])
-                if position > atoms_rows and position <= bonds_rows:
-                    bonds.append(Bond(int(line[1:3]), int(line[3:6]),
-                                 int(line[8:9])))
-                if position == (end_position):
-                    position_bonds, position_atoms = int(line[3:6]), int(
-                                                                    line[0:3])
-                    atoms_rows = (position_atoms + position)
-                    bonds_rows = (atoms_rows + position_bonds)
+        while True:
+            atoms, bonds, line = [], [], fh.readline()
+            if "" == line[0:1]:
+                return molecule
+            name = (line[:].strip())
+            for i in range(2):
+                fh.readline()
+            line = fh.readline()
+            count_atoms, count_bonds = int(line[0:3]), int(line[3:6])
+            for i in range(count_atoms):
+                line = fh.readline()
+                atoms.append(line[31:32])
+            for i in range(count_bonds):
+                line = fh.readline()
+                bonds.append(Bond(int(line[1:3]), int(line[3:6]),
+                                    int(line[8:9])))
+            while True:
+                line = fh.readline()
                 if "$$$$" in line:
                     molecule.append((name, atoms, bonds))
-                    number_name, end_position = position + 1, position + 4
-                    lower_position, atoms, bonds = end_position, [], []
-            if position == number_name:
-                name = line[0:11]
-    return molecule
+                    break
 
 
 def get_output(counts, counts_by_bonds, count_by_one):
     for name, atoms in count_by_one:
-        print("Molecule: {}{}".format(name, "".join("{} = {}\n".format(atom,
+        print("Molecule: {}{}".format(name, "".join("\n{} = {}".format(atom,
                                       count) for atom, count in atoms.items())))
     print ("Number of atoms in the whole set:")
     for key in counts:
