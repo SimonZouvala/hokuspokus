@@ -29,25 +29,23 @@ def load_file(filename):
     Bond = namedtuple('Bond', ['first_atom', 'second_atom', 'bond'])
     with open(filename, "r") as fh:
         position, lower_position, number_name = 0, 4, 1
-        data = {}
         for line in fh:
             position += 1
             if position > 3:
-                data = line
                 if position == 4:
-                    position_bonds, position_atoms = int(data[3:6]), int(
-                                                                    data[0:3])
+                    position_bonds, position_atoms = int(line[3:6]), int(
+                                                                    line[0:3])
                     atoms_rows = (position_atoms + position)
                     end_position = (atoms_rows + position_bonds + 6)
                     bonds_rows = (atoms_rows + position_bonds)
                 if position <= atoms_rows and position > lower_position:
-                    atoms.append(data[31:32])
+                    atoms.append(line[31:32])
                 if position > atoms_rows and position <= bonds_rows:
-                    bonds.append(Bond(int(data[1:3]), int(data[3:6]),
-                                 int(data[8:9])))
+                    bonds.append(Bond(int(line[1:3]), int(line[3:6]),
+                                 int(line[8:9])))
                 if position == (end_position):
-                    position_bonds, position_atoms = int(data[3:6]), int(
-                                                                    data[0:3])
+                    position_bonds, position_atoms = int(line[3:6]), int(
+                                                                    line[0:3])
                     atoms_rows = (position_atoms + position)
                     bonds_rows = (atoms_rows + position_bonds)
                 if "$$$$" in line:
