@@ -86,35 +86,36 @@ class MoleculesSet:
     def calculate_atom_charge(self):
         atom_parametr = {}
         for atom, parametr in self.parametrs:
-            parametr_a, parametr_b = parametr[0]
-            atom_parametr[atom, "A"] = parametr_a
-            atom_parametr[atom, "B"] = parametr_b
+            for bond in range(1, len(parametr) + 1):
+                parametr_a, parametr_b = parametr[bond - 1]
+                atom_parametr[atom, "A", bond] = parametr_a
+                atom_parametr[atom, "B", bond] = parametr_b
         for number_molecule in range(len(self.molecules)):
-            elements, dx, dy, dz = [], [], [], []
+            elements, bonds, dx, dy, dz = [], [], [], [], []
             name = self.molecules[number_molecule].name
             for number_atom in range(len(self.molecules[number_molecule].atoms)):
-                number = self.molecules[number_molecule].atoms[number_atom].number
+                count = self.molecules[number_molecule].atoms[number_atom].number
                 element_symbol = self.molecules[number_molecule].atoms[number_atom].element_symbol
                 bond = self.molecules[number_molecule].atoms[number_atom].bond
                 coordinate = self.molecules[number_molecule].atoms[number_atom].coordinate
                 cx, cy, cz = coordinate
                 elements.append(element_symbol)
+                bonds.append(bond)
                 dx.append(cx)
                 dy.append(cy)
                 dz.append(cz)
-            distance = np.zeros((len(elements) + 1, len(elements) + 1))
-            parametrs_a = np.zeros((len(elements) + 1, 1))
-            for i in range(len(elements)):
-                parametrs_a[i, 0] = atom_parametr[elements[i], "A"]
-            for i in range(len(elements)):
-                for j in range(len(elements)):
+            distance = np.zeros((count + 1, count+ 1))
+            parametrs_a = np.zeros((count + 1, 1))
+            for i in range(count):
+                parametrs_a[i, 0] = atom_parametr[elements[i], "A", bonds[i]]
+                for j in range(count):
                     distance[i, j] = get_distance(self.kappa, dx[j], dx[i], dy[j], dy[i], dz[j], dz[i])
                     if i == j:
-                        distance[i, j] = atom_parametr[elements[i - 1], "B"]
-            distance[len(elements), :] = 1
-            distance[:, len(elements)] = -1
-            distance[len(elements), len(elements)] = 0
-            print(name, distance)
+                        distance[i, j] = atom_parametr[elements[i], "B", bonds[i]]
+            distance[count, :] = 1
+            distance[:, count] = -1
+            distance[count, count] = 0
+            print(name, "\n", distance, "\n", parametrs_a[:])
 
 
 def get_distance(kappa, x1, x2, y1, y2, z1, z2):
@@ -124,10 +125,8 @@ def get_distance(kappa, x1, x2, y1, y2, z1, z2):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("SDF file", help="Give a file with molecules (.sdf) ",
-                        type=str)
-    parser.add_argument("Parametrs file", help="Give a file with parametr ",
-                        type=str)
+    parser.add_argument("SDF file", help="Give a file with molecules (.sdf) ", type=str)
+    parser.add_argument("Parametrs file", help="Give a file with parametrs ", type=str)
     args = parser.parse_args()
     mset = MoleculesSet()
     mset.load_parametrs(sys.argv[2])
