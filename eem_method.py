@@ -176,8 +176,7 @@ class MoleculesSet:
 
     def __str__(self):
         return str("{}".format(self.molecules))
-
-def get_graph(Charges_data, )
+    
 
 def output_to_file(filename, file_parameters, data):
     new_file = "data_from_" + filename + "_with_parameters_" + file_parameters
