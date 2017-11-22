@@ -2,6 +2,7 @@ import sys
 import argparse
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 
 from collections import Counter
 
@@ -49,7 +50,7 @@ class MoleculesSet:
                     for i in range(1, count_atoms + 1):
                         line = fh.readline()
                         bond_data[i] = 0
-                        elements.append(line[31:32])
+                        elements.append(line[31:33].strip())
                         coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
                     for i in range(count_bonds):
                         line = fh.readline()
@@ -100,6 +101,7 @@ class MoleculesSet:
 
     def calculate_atom_charge(self):
         atom_parameter, output = {}, []
+        self.chyba = 0
         try:
             for element, type_bond, parameter in self.parameters:
                 a_parameter, b_parameter = parameter[0]
@@ -113,7 +115,6 @@ class MoleculesSet:
                 try:
                     for i, atom in enumerate(molecule.atoms):
                         data_from_atoms.append((atom.element_symbol, atom.number, atom.bond))
-
                         if not self.yes_type:
                             atom.bond = 1
                         parameters_a[i] = - atom_parameter[atom.element_symbol, "A", atom.bond]
@@ -126,11 +127,11 @@ class MoleculesSet:
                                                                                    molecule.atoms[i].coordinate,
                                                                                    molecule.atoms[j].coordinate)
                 except KeyError:
-                    print("Missing parameters for {}. element ({}{}) in {}. Program did not count with this "
+                    self.chyba += 1
+                    print("Missing parameters for {}. element {}({}) in {}. Program did not count with this "
                           "element.".format(atom.number, atom.element_symbol, atom.bond, name))
                     output.append((name, count, atom.element_symbol, atom.bond))
                     continue
-
                 distance[count, :] = 1
                 distance[:, count] = -1
                 distance[count, count] = 0
@@ -141,21 +142,21 @@ class MoleculesSet:
         output_to_file(self.filename, self.file_parameters, output)
 
     def get_statistic_from_set(self):
-        elements, count_element, count_all_atoms, elements_in_molecules = [], Counter(), 0, []
-        for molecule in self.molecules:
+        elements, count_element, count_all_atoms, elements_in_molecules, i = [], Counter(), 0, [], 0
+        for i, molecule in enumerate(self.molecules):
             for atom in molecule.atoms:
                 elements.append(atom.element_symbol)
+            i += 1
             count_element += molecule.elements_count
             count_all_atoms += molecule.count_atoms
             for key in molecule.elements_count:
                 elements_in_molecules.append(key)
-
             """For print statistic for singles molecule
             print("Molecule:{}{}".format(molecule.name, "".join("\n{} = {}".format(atom, count) for atom,
                                                                 count in molecule.elements_count.items())))"""
         count_element_in_molecule = Counter(elements_in_molecules)
         elements_numbers = Counter(elements)
-        print("Number of elements in whole set {}:".format(self.filename))
+        print("Number of elements in whole set {}:{}".format(self.filename, i))
         for key in elements_numbers:
             print("{} = {}".format(key, elements_numbers[key]))
         print("Number of elements in whole set {} by bond:".format(self.filename))
@@ -163,6 +164,7 @@ class MoleculesSet:
         for key in sorted(count_element):
             print("{0} = {1:>8} {2:12.3%} {3:>10}".format(key, count_element[key], (count_element[key]/count_all_atoms),
                                                           count_element_in_molecule[key]))
+        print("Vypočetlo to {}".format(i - self.chyba))
 
     def get_statistic_from_parameters(self):
         print("Parameters from {}:".format(self.file_parameters))
@@ -175,6 +177,7 @@ class MoleculesSet:
     def __str__(self):
         return str("{}".format(self.molecules))
 
+def get_graph(Charges_data, )
 
 def output_to_file(filename, file_parameters, data):
     new_file = "data_from_" + filename + "_with_parameters_" + file_parameters
