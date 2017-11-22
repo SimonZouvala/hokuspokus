@@ -2,7 +2,6 @@ import sys
 import argparse
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 
 from collections import Counter
 
@@ -97,11 +96,10 @@ class MoleculesSet:
         except IOError:
             print("Wrong file for parameters! Try another file than").format(filename)
             sys.exit(2)
-        get_statistic_from_parameters
 
     def calculate_atom_charge(self):
         atom_parameter, output = {}, []
-        self.chyba = 0
+        self.error_molecules = 0
         try:
             for element, type_bond, parameter in self.parameters:
                 a_parameter, b_parameter = parameter[0]
@@ -118,7 +116,6 @@ class MoleculesSet:
                         if not self.yes_type:
                             atom.bond = 1
                         parameters_a[i] = - atom_parameter[atom.element_symbol, "A", atom.bond]
-
                         for j in range(i, count):
                                 if i == j:
                                     distance[i, j] = atom_parameter[atom.element_symbol, "B", atom.bond]
@@ -127,7 +124,7 @@ class MoleculesSet:
                                                                                    molecule.atoms[i].coordinate,
                                                                                    molecule.atoms[j].coordinate)
                 except KeyError:
-                    self.chyba += 1
+                    self.error_molecules += 1
                     print("Missing parameters for {}. element {}({}) in {}. Program did not count with this "
                           "element.".format(atom.number, atom.element_symbol, atom.bond, name))
                     output.append((name, count, atom.element_symbol, atom.bond))
@@ -142,11 +139,10 @@ class MoleculesSet:
         output_to_file(self.filename, self.file_parameters, output)
 
     def get_statistic_from_set(self):
-        elements, count_element, count_all_atoms, elements_in_molecules, i = [], Counter(), 0, [], 0
-        for i, molecule in enumerate(self.molecules):
+        elements, count_element, count_all_atoms, elements_in_molecules = [], Counter(), 0, []
+        for count, molecule in enumerate(self.molecules, start=1):
             for atom in molecule.atoms:
                 elements.append(atom.element_symbol)
-            i += 1
             count_element += molecule.elements_count
             count_all_atoms += molecule.count_atoms
             for key in molecule.elements_count:
@@ -156,15 +152,17 @@ class MoleculesSet:
                                                                 count in molecule.elements_count.items())))"""
         count_element_in_molecule = Counter(elements_in_molecules)
         elements_numbers = Counter(elements)
-        print("Number of elements in whole set {}:{}".format(self.filename, i))
+        print("Number of elements in whole set {}: {} molecules.".format(self.filename, count))
+        print("Program calculated {} molecules.".format(count - self.error_molecules))
         for key in elements_numbers:
             print("{} = {}".format(key, elements_numbers[key]))
         print("Number of elements in whole set {} by bond:".format(self.filename))
         print("Element    Count in set  %in set  Found in molecules")
         for key in sorted(count_element):
-            print("{0} = {1:>8} {2:12.3%} {3:>10}".format(key, count_element[key], (count_element[key]/count_all_atoms),
-                                                          count_element_in_molecule[key]))
-        print("Vypočetlo to {}".format(i - self.chyba))
+            element, bond = key
+            print("{0:>3}({1}) = {2:>10} {3:12.3%} {4:>10}".format(element, bond, count_element[key],
+                                                                   (count_element[key]/count_all_atoms),
+                                                                   count_element_in_molecule[key]))
 
     def get_statistic_from_parameters(self):
         print("Parameters from {}:".format(self.file_parameters))
@@ -172,11 +170,11 @@ class MoleculesSet:
         print("Element:   A       B")
         for element, type_bond, parameter in sorted(self.parameters):
             a_parameter, b_parameter = parameter[0]
-            print("{:>3}{:}: {:8} {:7}".format(element, type_bond, a_parameter, b_parameter))
+            print("{:>3}{}: {:8} {:7}".format(element, type_bond, a_parameter, b_parameter))
 
     def __str__(self):
         return str("{}".format(self.molecules))
-    
+
 
 def output_to_file(filename, file_parameters, data):
     new_file = "data_from_" + filename + "_with_parameters_" + file_parameters
