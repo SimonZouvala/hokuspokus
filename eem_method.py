@@ -19,8 +19,9 @@ class Atom:
 
 class Molecule:
 
-    def __init__(self, name, atoms, elements_count):
+    def __init__(self, name, count_atoms, atoms, elements_count):
         self.name = name
+        self.count_atoms = count_atoms
         self.atoms = atoms
         self.elements_count = elements_count
 
@@ -61,7 +62,7 @@ class MoleculesSet:
                     while True:
                         line = fh.readline()
                         if "$$$$" in line:
-                            molecules.append((Molecule(name, atoms, elements_count)))
+                            molecules.append((Molecule(name, count_atoms,  atoms, elements_count)))
                             break
         except IOError:
             print("Wrong file for molecules set! Try another file than {}".format(filename))
@@ -69,6 +70,7 @@ class MoleculesSet:
 
     def load_parameters(self, filename):
         try:
+            self.file_parameters = filename
             with open(filename, "r") as fp:
                 parameters = []
                 for line in fp:
@@ -76,100 +78,112 @@ class MoleculesSet:
                         self.kappa = float(line[line.index("Kappa") + len("Kappa=\""):-3])
                     if "<Element" in line:
                         element = line[line.index("Name") + len("Name=\"")]
-                        element_parameters = []
                     if "<Bond" in line:
+                        element_parameters = []
+                        if "Type" in line:
+                            self.yes_type = True
+                            type_bond = int(line[line.index("Type") + len("Type=\"")])
+                        else:
+                            type_bond = 1
+                            self.yes_type = False
                         parameter_a = int(line.index("A=") + len("A=\""))
                         parameter_b = int(line.index("B=") + len("B=\""))
                         element_parameters.append((float(line[parameter_a:parameter_a + 6]),
                                                   float(line[parameter_b:parameter_b + 6])))
-                    if "</Element>" in line:
-                        parameters.append((element, element_parameters))
+                        parameters.append((element, type_bond, element_parameters))
                 self.parameters = parameters
             return print("Load parameters for elements from {}".format(filename))
         except IOError:
             print("Wrong file for parameters! Try another file than").format(filename)
             sys.exit(2)
 
-    def __str__(self):
-        return str("{}".format(self.molecules))
-
     def calculate_atom_charge(self):
         atom_parameter, output = {}, []
         try:
-            for atom, parameter in self.parameters:
-                for bond, item in enumerate(parameter, start=1):
-                    a_parameter, b_parameter = item
-                    atom_parameter[atom, "A", bond] = a_parameter
-                    atom_parameter[atom, "B", bond] = b_parameter
+            for element, type_bond, parameter in self.parameters:
+                a_parameter, b_parameter = parameter[0]
+                atom_parameter[element, "A", type_bond] = a_parameter
+                atom_parameter[element, "B", type_bond] = b_parameter
             for molecule in self.molecules:
-                elements, bonds, numbers_elements, row_delete = [], [], [], []
-                name = molecule.name
-                for atom in molecule.atoms:
-                    elements.append(atom.element_symbol)
-                    bonds.append(atom.bond)
-                    numbers_elements.append(atom.number)
-                count = len(elements)
+                data_from_atoms, name = [], molecule.name
+                count = molecule.count_atoms
                 distance = np.zeros((count + 1, count + 1))
                 parameters_a = np.zeros((count + 1))
-                for i, item in enumerate(elements):
+                for i, atom in enumerate(molecule.atoms):
+                    data_from_atoms.append((atom.element_symbol, atom.number, atom.bond))
                     try:
-                        parameters_a[i] = - atom_parameter[item, "A", bonds[i]]
-                    except KeyError:
-                        parameters_a[i] = 0
-                        continue
-                for i, item in enumerate(elements):
-                    try:
+                        if not self.yes_type:
+                            atom.bond = 1
+                        parameters_a[i] = - atom_parameter[atom.element_symbol, "A", atom.bond]
                         for j in range(i, count):
                                 if i == j:
-                                    distance[i, j] = atom_parameter[item, "B", bonds[i]]
+                                    distance[i, j] = atom_parameter[atom.element_symbol, "B", atom.bond]
                                 else:
                                     distance[i, j] = distance[j, i] = get_distance(self.kappa,
                                                                                    molecule.atoms[i].coordinate,
                                                                                    molecule.atoms[j].coordinate)
                     except KeyError:
-                        print("Missing parameters for {}. element ({}) in {}. Program did not count with this element."
-                              "".format(i + 1, item, name))
-                        row_delete.append(i)
-                        continue
+                        print("Missing parameters for {}. element ({}{}) in {}. Program did not count with this "
+                              "element.".format(i + 1, atom.element_symbol, atom.bond, name))
+                        output.append((name, count, atom.element_symbol, "Error"))
+                        break
                 distance[count, :] = 1
                 distance[:, count] = -1
                 distance[count, count] = 0
-                if len(row_delete) > 0:
-                    distance = np.delete(distance, row_delete, 1)
-                    distance = np.delete(distance, row_delete, 0)
-                    parameters_a = np.delete(parameters_a, row_delete, 0)
-                    elements = [i for j, i in enumerate(elements) if j not in row_delete]
-                    numbers_elements = [i for j, i in enumerate(numbers_elements) if j not in row_delete]
                 charges = np.linalg.solve(distance, parameters_a)
-                output.append((name, count, numbers_elements, elements, charges))
+                output.append((name, count, data_from_atoms, charges))
         except KeyError:
             print("Something wrong with calculate")
-        output_to_file(self.filename, output)
+        output_to_file(self.filename, self.file_parameters, output)
 
     def get_statistic_from_set(self):
-        elements, count_element = [], Counter()
+        elements, count_element, count_all_atoms, elements_in_molecules = [], Counter(), 0, []
         for molecule in self.molecules:
             for atom in molecule.atoms:
                 elements.append(atom.element_symbol)
             count_element += molecule.elements_count
+            count_all_atoms += molecule.count_atoms
+            for key in molecule.elements_count:
+                elements_in_molecules.append(key)
+
+            """For print statistic for singles molecule
             print("Molecule:{}{}".format(molecule.name, "".join("\n{} = {}".format(atom, count) for atom,
-                                                                count in molecule.elements_count.items())))
+                                                                count in molecule.elements_count.items())))"""
+        count_element_in_molecule = Counter(elements_in_molecules)
         elements_numbers = Counter(elements)
         print("Number of elements in whole set {}:".format(self.filename))
         for key in elements_numbers:
             print("{} = {}".format(key, elements_numbers[key]))
         print("Number of elements in whole set {} by bond:".format(self.filename))
+        print("Element    Count in set  %in set  Found in molecules")
         for key in sorted(count_element):
-            print("{} = {}".format(key, count_element[key]))
+            print("{0} = {1:>8} {2:12.3%} {3:>10}".format(key, count_element[key], (count_element[key]/count_all_atoms),
+                                                          count_element_in_molecule[key]))
+        print("Parameters from {}:".format(self.file_parameters))
+        print("Kappa = {}".format(self.kappa))
+        print("Element:   A       B")
+        for element, type_bond, parameter in self.parameters:
+            a_parameter, b_parameter = parameter[0]
+            print("{:>3}{:}: {:8} {:7}".format(element, type_bond, a_parameter, b_parameter))
+
+    def __str__(self):
+        return str("{}".format(self.molecules))
 
 
-def output_to_file(filename, data):
-    new_file = "data_from_" + filename
+def output_to_file(filename, file_parameters, data):
+    new_file = "data_from_" + filename + "_with_parameters_" + file_parameters
     with open(new_file, "w") as f:
-        for name, count, numbers, elements, charges in data:
+        for name, count, atoms, charges in data:
             print("{}\n{}".format(name, count), file=f)
-            for i, item in enumerate(elements):
-                print("{0:6d}  {1:3} {2: f}".format(numbers[i], item, charges[i]), file=f)
+            for i, atom in enumerate(atoms):
+                element, number, bond = atom
+                try:
+                    print("{0:6d}  {1}{2:2} {3: f}".format(number, element, bond, charges[i]), file=f)
+                except TypeError:
+                    print("Missing parameter for this element {} {}. Program can not calculate charges ".format(element,
+                                                                                                                number),
+                          file=f)
+                    continue
             print("", file=f)
     print("Now you can find charge for each element in file {}".format(new_file))
 
@@ -181,16 +195,20 @@ def get_distance(kappa, first_coordinate, second_coordinate):
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("SDF_file", help="Give a file with molecules (.sdf) ", type=str)
     parser.add_argument("Parameters_file", help="Give a file with parameters in xml format", type=str)
+    parser.add_argument("Second_Parameters_file", help="Give a file with another parameters in xml format", type=str,
+                        nargs="?", default=0)
     args = parser.parse_args()
     mset = MoleculesSet()
+    mset.load_parameters(args.Parameters_file)
     mset.load_from_sdf(args.SDF_file)
     mset.get_statistic_from_set()
-    mset.load_parameters(args.Parameters_file)
     mset.calculate_atom_charge()
+    if args.Second_Parameters_file:
+        mset.load_parameters(args.Second_Parameters_file)
+        mset.calculate_atom_charge()
 
 
 if __name__ == "__main__":
