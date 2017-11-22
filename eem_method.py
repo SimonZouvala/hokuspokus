@@ -69,6 +69,7 @@ class MoleculesSet:
             sys.exit(1)
 
     def load_parameters(self, filename):
+        self.yes_type = False
         try:
             self.file_parameters = filename
             with open(filename, "r") as fp:
@@ -77,7 +78,7 @@ class MoleculesSet:
                     if " Kappa=" in line:
                         self.kappa = float(line[line.index("Kappa") + len("Kappa=\""):-3])
                     if "<Element" in line:
-                        element = line[line.index("Name") + len("Name=\"")]
+                        element = line[line.index("Name") + len("Name=\""):-3].strip()
                     if "<Bond" in line:
                         element_parameters = []
                         if "Type" in line:
@@ -85,7 +86,6 @@ class MoleculesSet:
                             type_bond = int(line[line.index("Type") + len("Type=\"")])
                         else:
                             type_bond = 1
-                            self.yes_type = False
                         parameter_a = int(line.index("A=") + len("A=\""))
                         parameter_b = int(line.index("B=") + len("B=\""))
                         element_parameters.append((float(line[parameter_a:parameter_a + 6]),
@@ -96,6 +96,7 @@ class MoleculesSet:
         except IOError:
             print("Wrong file for parameters! Try another file than").format(filename)
             sys.exit(2)
+        get_statistic_from_parameters
 
     def calculate_atom_charge(self):
         atom_parameter, output = {}, []
@@ -109,12 +110,14 @@ class MoleculesSet:
                 count = molecule.count_atoms
                 distance = np.zeros((count + 1, count + 1))
                 parameters_a = np.zeros((count + 1))
-                for i, atom in enumerate(molecule.atoms):
-                    data_from_atoms.append((atom.element_symbol, atom.number, atom.bond))
-                    try:
+                try:
+                    for i, atom in enumerate(molecule.atoms):
+                        data_from_atoms.append((atom.element_symbol, atom.number, atom.bond))
+
                         if not self.yes_type:
                             atom.bond = 1
                         parameters_a[i] = - atom_parameter[atom.element_symbol, "A", atom.bond]
+
                         for j in range(i, count):
                                 if i == j:
                                     distance[i, j] = atom_parameter[atom.element_symbol, "B", atom.bond]
@@ -122,11 +125,12 @@ class MoleculesSet:
                                     distance[i, j] = distance[j, i] = get_distance(self.kappa,
                                                                                    molecule.atoms[i].coordinate,
                                                                                    molecule.atoms[j].coordinate)
-                    except KeyError:
-                        print("Missing parameters for {}. element ({}{}) in {}. Program did not count with this "
-                              "element.".format(i + 1, atom.element_symbol, atom.bond, name))
-                        output.append((name, count, atom.element_symbol, "Error"))
-                        break
+                except KeyError:
+                    print("Missing parameters for {}. element ({}{}) in {}. Program did not count with this "
+                          "element.".format(atom.number, atom.element_symbol, atom.bond, name))
+                    output.append((name, count, atom.element_symbol, atom.bond))
+                    continue
+
                 distance[count, :] = 1
                 distance[:, count] = -1
                 distance[count, count] = 0
@@ -159,10 +163,12 @@ class MoleculesSet:
         for key in sorted(count_element):
             print("{0} = {1:>8} {2:12.3%} {3:>10}".format(key, count_element[key], (count_element[key]/count_all_atoms),
                                                           count_element_in_molecule[key]))
+
+    def get_statistic_from_parameters(self):
         print("Parameters from {}:".format(self.file_parameters))
         print("Kappa = {}".format(self.kappa))
         print("Element:   A       B")
-        for element, type_bond, parameter in self.parameters:
+        for element, type_bond, parameter in sorted(self.parameters):
             a_parameter, b_parameter = parameter[0]
             print("{:>3}{:}: {:8} {:7}".format(element, type_bond, a_parameter, b_parameter))
 
@@ -176,13 +182,12 @@ def output_to_file(filename, file_parameters, data):
         for name, count, atoms, charges in data:
             print("{}\n{}".format(name, count), file=f)
             for i, atom in enumerate(atoms):
-                element, number, bond = atom
                 try:
+                    element, number, bond = atom
                     print("{0:6d}  {1}{2:2} {3: f}".format(number, element, bond, charges[i]), file=f)
-                except TypeError:
-                    print("Missing parameter for this element {} {}. Program can not calculate charges ".format(element,
-                                                                                                                number),
-                          file=f)
+                except ValueError:
+                    print("Missing parameter for this element {}({}). "
+                          "Program can not calculate charges.".format(atoms, charges), file=f)
                     continue
             print("", file=f)
     print("Now you can find charge for each element in file {}".format(new_file))
@@ -204,11 +209,13 @@ def main():
     mset = MoleculesSet()
     mset.load_parameters(args.Parameters_file)
     mset.load_from_sdf(args.SDF_file)
-    mset.get_statistic_from_set()
     mset.calculate_atom_charge()
+    mset.get_statistic_from_set()
+    mset.get_statistic_from_parameters()
     if args.Second_Parameters_file:
         mset.load_parameters(args.Second_Parameters_file)
         mset.calculate_atom_charge()
+        mset.get_statistic_from_parameters()
 
 
 if __name__ == "__main__":
