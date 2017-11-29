@@ -1,8 +1,4 @@
 import sys
-import argparse
-import math
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 
 from matplotlib.ticker import AutoMinorLocator, LinearLocator
@@ -69,8 +65,7 @@ class Graph:
 
     def graph(self):
         fig, ax = plt.subplots(figsize=(12, 12))
-        draw_data(self.ready1, "o", 1)
-        draw_data(self.ready2, ",", 2)
+        draw_data(sorted(self.ready1), sorted(self.ready2))
         ax.legend(loc=2)
         ax.yaxis.set_minor_locator(AutoMinorLocator())
         ax.xaxis.set_minor_locator(AutoMinorLocator())
@@ -84,12 +79,15 @@ class Graph:
         plt.show()
 
 
-def draw_data(data_for_draw, marker, number):
-    for element, coordinate in sorted(data_for_draw):
-        x, y,  = [], []
-        for y_data in coordinate:
+def draw_data(data1, data2):
+    for (element1, coordinate1), (element2, coordinate2) in zip(data1, data2):
+        x, y = [], []
+        for x_data in coordinate1:
+            x.append(x_data)
+        for y_data in coordinate2:
             y.append(y_data)
-        plt.scatter(y, y, marker=marker, label=(element + " from " + str(number) + ". result "), alpha=0.5)
+        plt.scatter(x, y, marker="o", label=(element1 + " 1. result "), alpha=0.5)
+        plt.scatter(y, x, marker=",", label=(element2 + " 2. result "), alpha=0.5)
 
 
 def prepare_data(crude_data):
@@ -102,17 +100,10 @@ def prepare_data(crude_data):
     data = sorted(data)
     start = 0
     for element in sorted(occurrence):
-        prepare_data = []
+        charges = []
         for i in range(start, occurrence[element] + start):
             element_name, charge = data[i]
-            prepare_data.append(charge)
-        data_ready.append((element, prepare_data))
+            charges.append(charge)
+        data_ready.append((element, charges))
         start += occurrence[element]
     return data_ready
-
-
-draw = Graph("result/data_from_set01.sdf_with_parameters_ElemBond.par",
-             "result/data_from_set01.sdf_with_parameters_Element.par")
-draw.load_files()
-draw.set_graph()
-draw.graph()
