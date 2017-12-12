@@ -2,10 +2,9 @@ from collections import Counter
 
 
 class Statistic:
-    def get_statistic_from_set(self, file_set, molecules, error_molecules):
+    def get_statistic_from_set(self, file_set, molecules):
         self.filename = file_set
         self.molecules = molecules
-        self.error_molecules = error_molecules
         elements, count_element, count_all_atoms, elements_in_molecules = [], Counter(), 0, []
         for count, molecule in enumerate(self.molecules, start=1):
             for atom in molecule.atoms:
@@ -16,7 +15,7 @@ class Statistic:
                 elements_in_molecules.append(key)
         count_element_in_molecule = Counter(elements_in_molecules)
         print("Number of elements in whole set {}: {} molecules.".format(self.filename, count))
-        print("Program calculated {} molecules.".format(count - self.error_molecules))
+
         """----For print number of elements in whole set not by bond----
         elements_numbers = Counter(elements)
         for key in elements_numbers:
