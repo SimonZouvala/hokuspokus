@@ -1,4 +1,4 @@
-class Output:
+class Charges:
     def __init__(self, filename, file_parameters, data):
         data_for_graph = []
         self.new_file = "result/data_from_" + filename.strip("data/") + "_with_parameters_"\
@@ -15,5 +15,5 @@ class Output:
                     continue
         print("Now you can find charge for each element in file {}".format(self.new_file))
 
-    def give_name_file_with_result(self):
+    def get_name_file_with_result(self):
         return self.new_file
