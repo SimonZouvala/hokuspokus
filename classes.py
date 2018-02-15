@@ -1,10 +1,12 @@
 import sys
+import numpy as np
+import re
 
 from collections import Counter
 
 
 class Atom:
-    def __init__(self, number, element_symbol, bond, coordinate):
+    def __init__(self, number, element_symbol, bond, coordinate=0):
         self.element_symbol = element_symbol
         self.coordinate = coordinate
         self.bond = bond
@@ -16,26 +18,31 @@ class Atom:
 
 class Molecule:
 
-    def __init__(self, name, count_atoms, atoms, elements_count):
+    def __init__(self, name, count_atoms, atoms, elements_count, count_bond_matrix, bond_matrix):
         self.name = name
         self.count_atoms = count_atoms
         self.atoms = atoms
         self.elements_count = elements_count
+        self.count_bond_matrix = count_bond_matrix
+        self.bond_matrix = bond_matrix
 
     def __str__(self):
         return str("Molecule name: {}\n{}".format(self.name, self.atoms))
 
 
 class MoleculesSet:
-    def load_from_sdf(self, filename, yes_type=True):
-        molecules = []
+    def load_from_sdf(self, filename, eem, mgchm, yes_type=True):
+        print(eem, mgchm)
+        molecules, find_elements = [], []
         try:
             with open(filename, "r") as fh:
                 while True:
-                    bond_data, atoms, elements, coordinate, line, elements_count = {}, [], [], [], fh.readline(),\
-                                                                                   Counter()
+                    max_bond, all_bond, atoms, elements, coordinate, line, elements_count = {}, {}, [], [], [],\
+                                                                                            fh.readline(), Counter()
                     if "" == line[0:1]:
                         self.molecules = molecules
+                        if mgchm:
+                            self.periodic_table = get_electronegativity_from_periodic_table(set(find_elements))
                         return print("Load molecules from {}".format(filename))
                     name = (line[:].strip())
                     for i in range(2):
@@ -44,24 +51,46 @@ class MoleculesSet:
                     count_atoms, count_bonds = int(line[0:3]), int(line[3:6])
                     for i in range(1, count_atoms + 1):
                         line = fh.readline()
-                        bond_data[i] = 0
+                        max_bond[i] = 0
                         elements.append(line[31:33].strip())
-                        coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
+                        if eem:
+                            coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
+                        if mgchm:
+                            find_elements.append(line[31:33].strip())
+                    if mgchm:
+                        count_bond_matrix = np.zeros((count_atoms, count_atoms))
+                        bond_matrix = np.zeros((count_atoms, count_atoms))
                     for i in range(count_bonds):
                         line = fh.readline()
                         first_atom, second_atom, bond = int(line[1:3]), int(line[3:6]), int(line[8:9])
-                        bond_data[first_atom] = max(bond_data[first_atom], bond)
-                        bond_data[second_atom] = max(bond_data[second_atom], bond)
-                    for number in bond_data:
-                        if yes_type:
-                            elements_count[(elements[number - 1], bond_data[number])] += 1
-                        else:
-                            elements_count[elements[number - 1]] += 1
-                        atoms.append(Atom(number, elements[number - 1], bond_data[number], coordinate[number - 1]))
+                        max_bond[first_atom] = max(max_bond[first_atom], bond)
+                        max_bond[second_atom] = max(max_bond[second_atom], bond)
+                        if mgchm:
+                            i1, i2 = first_atom - 1, second_atom - 1
+                            bond_matrix[i1, i2] = bond_matrix[i2, i1] = bond
+                            count_bond_matrix[i1, i1] += bond
+                            count_bond_matrix[i2, i2] += bond
+                            all_bond[first_atom] = int(count_bond_matrix[i1, i1])
+                            all_bond[second_atom] = int(count_bond_matrix[i2, i2])
+                    for number in max_bond:
+                        if eem:
+                            if yes_type:
+                                elements_count[(elements[number - 1], max_bond[number])] += 1
+                            else:
+                                elements_count[elements[number - 1]] += 1
+                            atoms.append(Atom(number, elements[number - 1], max_bond[number], coordinate[number - 1]))
+                        if mgchm:
+                            bond = str(max_bond[number]) + "|" + str(all_bond[number])
+                            atoms.append(Atom(number, elements[number - 1], bond))
                     while True:
                         line = fh.readline()
                         if "$$$$" in line:
-                            molecules.append(Molecule(name, count_atoms, atoms, elements_count))
+                            if eem:
+                                count_bond_matrix = bond_matrix = False
+                            if mgchm:
+                                elements_count = False
+                            molecules.append(Molecule(name, count_atoms, atoms, elements_count, count_bond_matrix,
+                                                      bond_matrix))
                             break
         except IOError:
             print("Wrong file for molecules set! Try another file than {}".format(filename))
@@ -99,3 +128,15 @@ class MoleculesSet:
 
     def __str__(self):
         return str("{}".format(self.molecules))
+
+
+def get_electronegativity_from_periodic_table(elements):
+    periodic_table = {}
+    for element in elements:
+        with open("data/Periodic Table of Elements.csv", "r", encoding="latin-1") as ftp:
+            for line in ftp:
+                if ("," + element + ",") in line:
+                    periodic_table[element] = float(line[[m.start() for m in re.finditer(r",", line)][10] + 1:[
+                        m.start() for m in re.finditer(r",", line)][11]])
+                    break
+    return periodic_table
