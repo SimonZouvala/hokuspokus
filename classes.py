@@ -31,14 +31,14 @@ class Molecule:
 
 
 class MoleculesSet:
-    def load_from_sdf(self, filename, eem, mgchm, yes_type=True):
-        print(eem, mgchm)
+    def load_from_sdf(self, filename, eem, mgchm, ogchm, yes_type=True):
         molecules, find_elements = [], []
         try:
             with open(filename, "r") as fh:
                 while True:
-                    max_bond, all_bond, atoms, elements, coordinate, line, elements_count = {}, {}, [], [], [],\
-                                                                                            fh.readline(), Counter()
+                    max_bond, all_bond, atoms, elements, coordinate, line, elements_count, index = {}, {}, [], [], [],\
+                                                                                            fh.readline(), Counter(), 0
+                    index = Counter()
                     if "" == line[0:1]:
                         self.molecules = molecules
                         if mgchm:
@@ -57,6 +57,10 @@ class MoleculesSet:
                             coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
                         if mgchm:
                             find_elements.append(line[31:33].strip())
+                    if ogchm:
+                        size_matrix, symbol, size = get_orbital_electrons(elements)
+                        count_bond_matrix = np.zeros((size_matrix, size_matrix))
+                        bond_matrix = np.zeros((size_matrix, size_matrix))
                     if mgchm:
                         count_bond_matrix = np.zeros((count_atoms, count_atoms))
                         bond_matrix = np.zeros((count_atoms, count_atoms))
@@ -72,6 +76,26 @@ class MoleculesSet:
                             count_bond_matrix[i2, i2] += bond
                             all_bond[first_atom] = int(count_bond_matrix[i1, i1])
                             all_bond[second_atom] = int(count_bond_matrix[i2, i2])
+                        if ogchm:
+                            i1, i2 = first_atom - 1, second_atom - 1
+                            position1 = position2 = 0
+                            for i in range(0, i1):
+                                position1 += size[i]
+                            for i in range(0, i2):
+                                position2 += size[i]
+                            for x in range(bond):
+                                bond_matrix[position1 + index[first_atom]][position2 + index[second_atom]] = \
+                                    bond_matrix[position2 + index[second_atom]][position1 + index[first_atom]] = 1
+                                index[first_atom] += 1
+                                index[second_atom] += 1
+                    id = 0
+                    for i in size:
+                        for x in range(i):
+                            for y in range(i):
+                                if y != x:
+                                    bond_matrix[x + id, y + id] = 1
+                        id += i
+                    print(bond_matrix)
                     for number in max_bond:
                         if eem:
                             if yes_type:
@@ -140,3 +164,32 @@ def get_electronegativity_from_periodic_table(elements):
                         m.start() for m in re.finditer(r",", line)][11]])
                     break
     return periodic_table
+
+
+def get_orbital_electrons(elements):
+    matrix, symbol, i, size = 0, {}, 1, []
+    for x, element in enumerate(elements):
+        x += 1
+        with open("data/Periodic Table of Elements.csv", "r", encoding="latin-1") as ftp:
+            for line in ftp:
+                if ("," + element + ",") in line:
+                    some = []
+                    number = int(line[0:[m.start() for m in re.finditer(r",", line)][0]])
+                    if number < 3:
+                        i = 1
+                        some.append(1)
+
+                        symbol[x] = some
+                        size.append(number)
+                        matrix += number
+                    else:
+                        count = (number - 2) % 8
+                        for i in range(1, count + 1):
+                            some.append(1)
+                        symbol[x] = some
+
+                        size.append((number-2) % 8)
+                        matrix += (number - 2) % 8
+                    i += 1
+                    break
+    return matrix, symbol, size
