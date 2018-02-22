@@ -36,9 +36,9 @@ class MoleculesSet:
         try:
             with open(filename, "r") as fh:
                 while True:
-                    max_bond, all_bond, atoms, elements, coordinate, line, elements_count = Counter(), {}, [], [], [],\
-                                                                                            fh.readline(), Counter()
-                    index = Counter()
+                    max_bond, atoms, elements, coordinate, line, elements_count = Counter(), [], [], [], fh.readline(),\
+                                                                                  Counter()
+                    shift = Counter()
                     if "" == line[0:1]:
                         self.molecules = molecules
                         if mgchm or ogchm:
@@ -54,7 +54,7 @@ class MoleculesSet:
                         elements.append(line[31:33].strip())
                         if eem:
                             coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
-                        if mgchm:
+                        if mgchm or ogchm:
                             find_elements.append(line[31:33].strip())
                     if ogchm:
                         size_matrix, orbital_electrons = get_orbital_electrons(elements)
@@ -73,21 +73,19 @@ class MoleculesSet:
                             bond_matrix[index1, index2] = bond_matrix[index2, index1] = bond
                             count_bond_matrix[index1, index1] += bond
                             count_bond_matrix[index2, index2] += bond
-                            all_bond[first_atom] = int(count_bond_matrix[index1, index1])
-                            all_bond[second_atom] = int(count_bond_matrix[index2, index2])
                         if ogchm:
+                            orbital_electrons[0] = []
                             position1 = position2 = 0
                             for valence in range(0, first_atom):
-                                position1 += sum(orbital_electrons[valence])
+                                position1 += len(orbital_electrons[valence])
                             for valence in range(0, second_atom):
-                                position2 += sum(orbital_electrons[valence])
+                                position2 += len(orbital_electrons[valence])
                             for x in range(bond):
-                                bond_matrix[position1 + index[first_atom]][position2 + index[second_atom]] = \
-                                    bond_matrix[position2 + index[second_atom]][position1 + index[first_atom]] = 1
-                                index[first_atom] += 1
-                                index[second_atom] += 1
+                                bond_matrix[position1 + shift[first_atom]][position2 + shift[second_atom]] = \
+                                    bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
+                                shift[first_atom] += 1
+                                shift[second_atom] += 1
                     if ogchm:
-                        orbital_electrons[0].remove(0)
                         position = 0
                         for valence_electron in orbital_electrons:
                             for electron1 in range(len(orbital_electrons[valence_electron])):
@@ -95,7 +93,8 @@ class MoleculesSet:
                                     if electron1 != electron2:
                                         bond_matrix[electron1 + position, electron2 + position] = 1
                             position += len(orbital_electrons[valence_electron])
-                    print(bond_matrix)
+                        for index in range(size_matrix):
+                            count_bond_matrix[index, index] = int(sum(bond_matrix[index, :]))
                     for number in max_bond:
                         if eem:
                             if yes_type:
@@ -104,7 +103,7 @@ class MoleculesSet:
                                 elements_count[elements[number - 1]] += 1
                             atoms.append(Atom(number, elements[number - 1], max_bond[number], coordinate[number - 1]))
                         if mgchm:
-                            bond = str(max_bond[number]) + "|" + str(all_bond[number])
+                            bond = str(max_bond[number]) + "|" + str(int(count_bond_matrix[number - 1, number - 1]))
                             atoms.append(Atom(number, elements[number - 1], bond))
                     while True:
                         line = fh.readline()
@@ -169,26 +168,36 @@ def get_electronegativity_from_periodic_table(elements):
 
 
 def get_orbital_electrons(elements):
-    matrix, orbital_electrons, size = 0, Counter(), []
-    orbital_electrons[0] = [0]
+    matrix, orbital_electrons = 0, Counter()
     for x, element in enumerate(elements):
         x += 1
         with open("data/Periodic Table of Elements.csv", "r", encoding="latin-1") as ftp:
             for line in ftp:
                 if ("," + element + ",") in line:
-                    electrons = []
                     number = int(line[0:[m.start() for m in re.finditer(r",", line)][0]])
                     if number < 3:
-                        electrons.append(1)
-                        orbital_electrons[x] = electrons
-                        size.append(number)
-                        matrix += number
+                        valence_number = int(line[[m.start() for m in re.finditer(r",", line)][-3] + 3:[
+                            m.start() for m in re.finditer(r",", line)][-2]])
                     else:
-                        count = (number - 2) % 8
-                        for i in range(1, count + 1):
-                            electrons.append(1)
-                        orbital_electrons[x] = electrons
-                        size.append((number-2) % 8)
-                        matrix += (number - 2) % 8
+                        valence_number = 0
+                        valence_text = line[[m.start() for m in re.finditer(r",", line)][-3] + 5:
+                        [m.start() for m in re.finditer(r",", line)][-2]]
+                        if len(valence_text) > 8:
+                            if len(valence_text) > 10:
+                                valence_text = valence_text[-8:]
+                                if len(valence_text) > 8:
+                                    valence_text = valence_text[-1]
+                                    valence_number = int(valence_text[-1])
+                            else:
+                                valence_text = valence_text[-1]
+                                valence_number = int(valence_text[-1])
+                                break
+                        maximum = int((len(valence_text)) / 4)
+                        for i in range(maximum):
+                            number = valence_text[3:5].strip()
+                            valence_number += int(number)
+                            valence_text = valence_text[3 + len(number):]
+                    orbital_electrons[x] = [i for i in range(valence_number)]
+                    matrix += valence_number
                     break
     return matrix, orbital_electrons
