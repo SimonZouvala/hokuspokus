@@ -38,11 +38,14 @@ class MoleculesSet:
                 while True:
                     max_bond, atoms, elements, coordinate, line, elements_count = Counter(), [], [], [], fh.readline(),\
                                                                                   Counter()
-                    shift = Counter()
+                    shift, element_true = Counter(), {}
                     if "" == line[0:1]:
                         self.molecules = molecules
-                        if mgchm or ogchm:
+                        if mgchm:
                             self.periodic_table = get_electronegativity_from_periodic_table(set(find_elements))
+                        if ogchm:
+                            self.tb_el = table_electronegativity
+                            self.tb_hard = table_hardness
                         return print("Load molecules from {}".format(filename))
                     name = (line[:].strip())
                     for i in range(2):
@@ -56,10 +59,13 @@ class MoleculesSet:
                             coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
                         if mgchm or ogchm:
                             find_elements.append(line[31:33].strip())
+                            element_true[i] = True
                     if ogchm:
                         size_matrix, orbital_electrons = get_orbital_electrons(elements)
                         count_bond_matrix = np.zeros((size_matrix, size_matrix))
                         bond_matrix = np.zeros((size_matrix, size_matrix))
+                        table_electronegativity = np.zeros((size_matrix, 1))
+                        table_hardness = np.zeros((size_matrix, 1))
                     if mgchm:
                         count_bond_matrix = np.zeros((count_atoms, count_atoms))
                         bond_matrix = np.zeros((count_atoms, count_atoms))
@@ -80,6 +86,56 @@ class MoleculesSet:
                                 position1 += len(orbital_electrons[valence])
                             for valence in range(0, second_atom):
                                 position2 += len(orbital_electrons[valence])
+                            number_element = first_atom
+                            position = position1
+                            for i in range(2):
+                                if max_bond[number_element] == bond and element_true[number_element]:
+                                    state_text = []
+                                    valence_electrons = len(orbital_electrons[number_element])
+                                    electron_states = ["s", "di", "tr", "te"]
+                                    filled_type_state = 1
+                                    non_binding_pair = 0
+                                    if bond == 1:
+                                        if valence_electrons in [1, 2 ,3 , 4]:
+                                            for x in range(valence_electrons):
+                                                state_text.append(electron_states[valence_electrons - 1])
+                                                index_state = valence_electrons - 1
+                                                non_binding_pair = 4
+
+                                        else:
+                                            for y in range(valence_electrons//4):
+                                                state_text.append(electron_states[valence_electrons - 1] + "2")
+                                                non_binding_pair += 1
+                                                index_state = 3
+                                    else:
+                                        for x in range(bond - 1):
+                                            state_text.append("pi")
+                                            valence_electrons -= 1
+                                            filled_type_state += 1
+                                        if (filled_type_state > 2) and ((valence_electrons/2) >= 1.5):
+                                            for y in range(valence_electrons//2):
+                                                state_text.append(electron_states[-filled_type_state] + "2")
+                                                non_binding_pair += 1
+                                        index_state = -filled_type_state
+                                    for y in range(4 - filled_type_state + 1 - non_binding_pair):
+                                        state_text.insert(0, electron_states[index_state])
+                                    electronegativity, hardness = get_electronnegativity_and_hardness(
+                                        state_text, find_elements[number_element - 1])
+                                    print(state_text)
+                                    for i, state in enumerate(state_text):
+                                        table_electronegativity[position + i][0] = electronegativity[
+                                            find_elements[number_element - 1], state]
+                                        table_hardness[position + i][0] = hardness[find_elements[number_element - 1],
+                                                                                   state]
+                                        if "2" in state:
+                                            position += 1
+                                            table_electronegativity[position + i][0] = electronegativity[
+                                                find_elements[number_element - 1], state]
+                                            table_hardness[position + i][0] = hardness[find_elements[
+                                                                                           number_element - 1], state]
+                                position = position2
+                                element_true[number_element] = False
+                                number_element = second_atom
                             for x in range(bond):
                                 bond_matrix[position1 + shift[first_atom]][position2 + shift[second_atom]] = \
                                     bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
@@ -168,7 +224,7 @@ def get_electronegativity_from_periodic_table(elements):
 
 
 def get_orbital_electrons(elements):
-    matrix, orbital_electrons = 0, Counter()
+    matrix, orbital_electrons, ionization_potential = 0, Counter(), {}
     for x, element in enumerate(elements):
         x += 1
         with open("data/Periodic Table of Elements.csv", "r", encoding="latin-1") as ftp:
@@ -180,8 +236,8 @@ def get_orbital_electrons(elements):
                             m.start() for m in re.finditer(r",", line)][-2]])
                     else:
                         valence_number = 0
-                        valence_text = line[[m.start() for m in re.finditer(r",", line)][-3] + 5:
-                        [m.start() for m in re.finditer(r",", line)][-2]]
+                        valence_text = line[[m.start() for m in re.finditer(r",", line)][-3] + 5:[
+                            m.start() for m in re.finditer(r",", line)][-2]]
                         if len(valence_text) > 8:
                             if len(valence_text) > 10:
                                 valence_text = valence_text[-8:]
@@ -201,3 +257,19 @@ def get_orbital_electrons(elements):
                     matrix += valence_number
                     break
     return matrix, orbital_electrons
+
+def get_electronnegativity_and_hardness(state_text, element):
+    table_electronegativity, table_hardness = Counter(), Counter()
+    with open("data/electronegativity_hardness.csv", "r", encoding="latin-1") as feh:
+        for line in feh:
+            if (element + ",") in line:
+                if set(state_text) == set((line[[m.start() for m in re.finditer(r",", line)][0] + 1:[
+                            m.start() for m in re.finditer(r",", line)][1]]).split(" ")):
+                    table_electronegativity[element, line[[m.start() for m in re.finditer(r",", line)][1] + 1:[
+                                m.start() for m in re.finditer(r",", line)][2]]] = float(
+                        line[[m.start() for m in re.finditer(r",", line)][2] + 1:[
+                                m.start() for m in re.finditer(r",", line)][3]])
+                    table_hardness[element, line[[m.start() for m in re.finditer(r",", line)][1] + 1:[
+                                m.start() for m in re.finditer(r",", line)][2]]] = float(
+                        line[[m.start() for m in re.finditer(r",", line)][3] + 1:])
+    return table_electronegativity, table_hardness

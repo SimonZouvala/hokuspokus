@@ -33,7 +33,6 @@ def main():
     print(args)
     try:
         if args.calculate:
-            print(args.calculate)
             mset = classes.MoleculesSet()
             if args.eem:
                 set_file, para_file = args.calculate
@@ -46,7 +45,7 @@ def main():
             if args.mgchm:
                 cal = mgchm.Calculate(mset.molecules, mset.periodic_table)
             if args.ogchm:
-                cal = ogchm.Calculate(mset.molecules, mset.periodic_table)
+                cal = ogchm.Calculate(mset.molecules, mset.tb_el, mset.tb_hard)
             if args.output:
                 charge = cal
                 charge.save_charges(args.output)
@@ -56,7 +55,7 @@ def main():
         if args.molecules:
             stat = statistic.Statistic()
             mset = classes.MoleculesSet()
-            mset.load_from_sdf(args.molecules, True, False, args.nobond)
+            mset.load_from_sdf(args.molecules, True, False, False, args.nobond)
             stat.get_statistic_from_set(args.molecules, mset.molecules, args.nobond)
         if args.parameters:
             mset = classes.MoleculesSet()
