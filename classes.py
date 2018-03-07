@@ -38,7 +38,7 @@ class MoleculesSet:
                 while True:
                     max_bond, atoms, elements, coordinate, line, elements_count = Counter(), [], [], [], fh.readline(),\
                                                                                   Counter()
-                    shift, element_true = Counter(), {}
+                    shift, delete_rows, valence_state = Counter(), [], {}
                     if "" == line[0:1]:
                         self.molecules = molecules
                         if mgchm:
@@ -59,7 +59,6 @@ class MoleculesSet:
                             coordinate.append((float(line[2:10]), float(line[12:20]), float(line[22:30])))
                         if mgchm or ogchm:
                             find_elements.append(line[31:33].strip())
-                            element_true[i] = True
                     if ogchm:
                         size_matrix, orbital_electrons = get_orbital_electrons(elements)
                         count_bond_matrix = np.zeros((size_matrix, size_matrix))
@@ -86,70 +85,73 @@ class MoleculesSet:
                                 position1 += len(orbital_electrons[valence])
                             for valence in range(0, second_atom):
                                 position2 += len(orbital_electrons[valence])
-                            number_element = first_atom
-                            position = position1
-                            for i in range(2):
-                                if max_bond[number_element] == bond and element_true[number_element]:
-                                    state_text = []
+                            for number_element, position in zip([first_atom, second_atom], [position1, position2]):
+                                if max_bond[number_element] == bond:
+                                    state_text, filled_type_state, non_binding_pair, sigma = [], 1, 0, 0
                                     valence_electrons = len(orbital_electrons[number_element])
                                     electron_states = ["s", "di", "tr", "te"]
-                                    filled_type_state = 1
-                                    non_binding_pair = 0
                                     if bond == 1:
-                                        if valence_electrons in [1, 2 ,3 , 4]:
+                                        if valence_electrons in [1, 2, 3, 4]:
                                             for x in range(valence_electrons):
                                                 state_text.append(electron_states[valence_electrons - 1])
                                                 index_state = valence_electrons - 1
                                                 non_binding_pair = 4
-
+                                                sigma += 1
                                         else:
                                             for y in range(valence_electrons//4):
                                                 state_text.append(electron_states[valence_electrons - 1] + "2")
                                                 non_binding_pair += 1
                                                 index_state = 3
+                                                sigma += 1
                                     else:
                                         for x in range(bond - 1):
                                             state_text.append("pi")
                                             valence_electrons -= 1
                                             filled_type_state += 1
-                                        if (filled_type_state > 2) and ((valence_electrons/2) >= 1.5):
-                                            for y in range(valence_electrons//2):
-                                                state_text.append(electron_states[-filled_type_state] + "2")
-                                                non_binding_pair += 1
+                                        state_text.insert(0, electron_states[-filled_type_state])
+                                        valence_electrons -= 1
                                         index_state = -filled_type_state
-                                    for y in range(4 - filled_type_state + 1 - non_binding_pair):
-                                        state_text.insert(0, electron_states[index_state])
+                                    if ((valence_electrons - sigma)/2) >= 1:
+                                        for y in range(valence_electrons//2):
+                                            state_text.append(electron_states[-filled_type_state] + "2")
+                                            non_binding_pair += 1
+                                    for y in range(4 - filled_type_state - non_binding_pair):
+                                        state_text.append(electron_states[index_state])
                                     electronegativity, hardness = get_electronnegativity_and_hardness(
                                         state_text, find_elements[number_element - 1])
-                                    print(state_text)
-                                    for i, state in enumerate(state_text):
-                                        table_electronegativity[position + i][0] = electronegativity[
+                                    valence_state[number_element] = state_text
+                                    for move, state in enumerate(state_text):
+                                        table_electronegativity[position + move][0] = electronegativity[
                                             find_elements[number_element - 1], state]
-                                        table_hardness[position + i][0] = hardness[find_elements[number_element - 1],
-                                                                                   state]
+                                        table_hardness[position + move][0] = hardness[find_elements[number_element - 1],
+                                                                                      state]
                                         if "2" in state:
-                                            position += 1
-                                            table_electronegativity[position + i][0] = electronegativity[
-                                                find_elements[number_element - 1], state]
-                                            table_hardness[position + i][0] = hardness[find_elements[
-                                                                                           number_element - 1], state]
-                                position = position2
-                                element_true[number_element] = False
-                                number_element = second_atom
+                                            delete_rows.append(int(position + move + 1))
                             for x in range(bond):
                                 bond_matrix[position1 + shift[first_atom]][position2 + shift[second_atom]] = \
                                     bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
                                 shift[first_atom] += 1
                                 shift[second_atom] += 1
                     if ogchm:
+                        for row in delete_rows:
+                            table_electronegativity = np.delete(table_electronegativity, row, 0)
+                            table_hardness = np.delete(table_hardness, row, 0)
                         position = 0
                         for valence_electron in orbital_electrons:
+                            if len(orbital_electrons[valence_electron]) > (shift[valence_electron] + 1):
+                                total_binding_pairs = (len(orbital_electrons[
+                                                               valence_electron]) - shift[valence_electron])//2
+                                orbital_electrons[valence_electron].pop(-total_binding_pairs)
+                                for columns_or_row in [0, 1]:
+                                    bond_matrix = np.delete(bond_matrix, shift[valence_electron], columns_or_row)
+                                    count_bond_matrix = np.delete(count_bond_matrix, shift[valence_electron],
+                                                                  columns_or_row)
                             for electron1 in range(len(orbital_electrons[valence_electron])):
                                 for electron2 in range(len(orbital_electrons[valence_electron])):
                                     if electron1 != electron2:
                                         bond_matrix[electron1 + position, electron2 + position] = 1
                             position += len(orbital_electrons[valence_electron])
-                        for index in range(size_matrix):
+                        for index in range(count_bond_matrix.shape[0]):
                             count_bond_matrix[index, index] = int(sum(bond_matrix[index, :]))
                     for number in max_bond:
                         if eem:
@@ -169,7 +171,7 @@ class MoleculesSet:
                             else:
                                 elements_count = False
                             if ogchm:
-                                count_atoms = size_matrix
+                                count_atoms = count_bond_matrix.shape[0]
                             molecules.append(Molecule(name, count_atoms, atoms, elements_count, count_bond_matrix,
                                                       bond_matrix))
                             break
@@ -257,6 +259,7 @@ def get_orbital_electrons(elements):
                     matrix += valence_number
                     break
     return matrix, orbital_electrons
+
 
 def get_electronnegativity_and_hardness(state_text, element):
     table_electronegativity, table_hardness = Counter(), Counter()
