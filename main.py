@@ -45,7 +45,7 @@ def main():
             if args.mgchm:
                 cal = mgchm.Calculate(mset.molecules, mset.periodic_table)
             if args.ogchm:
-                cal = ogchm.Calculate(mset.molecules, mset.tb_el, mset.tb_hard)
+                cal = ogchm.Calculate(mset.molecules, mset.tb_el, mset.tb_hard, mset.covalent_radii)
             if args.output:
                 charge = cal
                 charge.save_charges(args.output)

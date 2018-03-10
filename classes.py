@@ -38,7 +38,7 @@ class MoleculesSet:
                 while True:
                     max_bond, atoms, elements, coordinate, line, elements_count = Counter(), [], [], [], fh.readline(),\
                                                                                   Counter()
-                    shift, delete_rows, valence_state = Counter(), [], {}
+                    shift, delete_rows, valence_state, covalent_radius = Counter(), [], {}, {}
                     if "" == line[0:1]:
                         self.molecules = molecules
                         if mgchm:
@@ -65,6 +65,7 @@ class MoleculesSet:
                         bond_matrix = np.zeros((size_matrix, size_matrix))
                         table_electronegativity = np.zeros((size_matrix, 1))
                         table_hardness = np.zeros((size_matrix, 1))
+                        matrix_covalent_radii = np.zeros((size_matrix, 1))
                     if mgchm:
                         count_bond_matrix = np.zeros((count_atoms, count_atoms))
                         bond_matrix = np.zeros((count_atoms, count_atoms))
@@ -86,6 +87,8 @@ class MoleculesSet:
                             for valence in range(0, second_atom):
                                 position2 += len(orbital_electrons[valence])
                             for number_element, position in zip([first_atom, second_atom], [position1, position2]):
+                                covalent_radius[find_elements[number_element - 1],
+                                                bond] = get_covalent_radii(find_elements[number_element - 1], bond)
                                 if max_bond[number_element] == bond:
                                     state_text, filled_type_state, non_binding_pair, sigma = [], 1, 0, 0
                                     valence_electrons = len(orbital_electrons[number_element])
@@ -125,6 +128,7 @@ class MoleculesSet:
                                             find_elements[number_element - 1], state]
                                         table_hardness[position + move][0] = hardness[find_elements[number_element - 1],
                                                                                       state]
+                                        matrix_covalent_radii[position + move][0] = covalent_radius[find_elements[number_element - 1], bond]
                                         if "2" in state:
                                             delete_rows.append(int(position + move + 1))
                             for x in range(bond):
@@ -132,11 +136,14 @@ class MoleculesSet:
                                     bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
                                 shift[first_atom] += 1
                                 shift[second_atom] += 1
+
                     if ogchm:
                         for row in delete_rows:
                             table_electronegativity = np.delete(table_electronegativity, row, 0)
                             table_hardness = np.delete(table_hardness, row, 0)
+                            matrix_covalent_radii = np.delete(matrix_covalent_radii, row, 0)
                         position = 0
+                        self.covalent_radii = matrix_covalent_radii
                         for valence_electron in orbital_electrons:
                             if len(orbital_electrons[valence_electron]) > (shift[valence_electron] + 1):
                                 total_binding_pairs = (len(orbital_electrons[
@@ -153,7 +160,7 @@ class MoleculesSet:
                             position += len(orbital_electrons[valence_electron])
                         for index in range(count_bond_matrix.shape[0]):
                             count_bond_matrix[index, index] = int(sum(bond_matrix[index, :]))
-                    for number in max_bond:
+                    for number in sorted(max_bond):
                         if eem:
                             if yes_type:
                                 elements_count[(elements[number - 1], max_bond[number])] += 1
@@ -163,12 +170,14 @@ class MoleculesSet:
                         if mgchm:
                             bond = str(max_bond[number]) + "|" + str(int(count_bond_matrix[number - 1, number - 1]))
                             atoms.append(Atom(number, elements[number - 1], bond))
+                        if ogchm:
+                            elements_count[elements[number - 1], number] = len(valence_state[number])
                     while True:
                         line = fh.readline()
                         if "$$$$" in line:
                             if eem:
                                 count_bond_matrix = bond_matrix = False
-                            else:
+                            if mgchm:
                                 elements_count = False
                             if ogchm:
                                 count_atoms = count_bond_matrix.shape[0]
@@ -276,3 +285,11 @@ def get_electronnegativity_and_hardness(state_text, element):
                                 m.start() for m in re.finditer(r",", line)][2]]] = float(
                         line[[m.start() for m in re.finditer(r",", line)][3] + 1:])
     return table_electronegativity, table_hardness
+
+
+def get_covalent_radii(element, bond):
+    with open("data/Covalent radii.csv", "r", encoding="latin-1") as fcr:
+        for line in fcr:
+            if (element + "," + str(bond)) in line:
+                covalent_radius = float(line[[m.start() for m in re.finditer(r",", line)][1] + 1:])
+    return covalent_radius

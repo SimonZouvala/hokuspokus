@@ -1,10 +1,10 @@
 import math
 import numpy as np
-from numpy.linalg import inv
 
+from collections import Counter
 
 class Calculate:
-    def __init__(self, molecules, tb_el, tb_hard):
+    def __init__(self, molecules, tb_el, tb_hard, covalent_radii):
         self.molecules, self.output, atom_parameter, error_molecules = molecules, [], {}, 0
         tb_electronegativity, tb_hardness = tb_el, tb_hard
         try:
@@ -27,34 +27,46 @@ class Calculate:
                 print(tb_electronegativity)
                 print("n = table Hardness")
                 print(tb_hardness)
-                print("Inverse S (OK)")
-                print(inv(simplified_matrix))
-                print("Tady to už nehraje :(")
                 nk_electronegativity = np.linalg.solve(simplified_matrix, tb_electronegativity)
                 print("X = Unknown electronegativities")
                 print(nk_electronegativity)
                 deviation_away_pt = nk_electronegativity-tb_electronegativity
-                geometric_mean = np.sum(nk_electronegativity)/count
-                print("Geometric_mean")
-                print(geometric_mean)
                 print("X - X°")
                 print(deviation_away_pt)
-                charges = deviation_away_pt * (1/tb_hardness)
-                print("Q = Charges")
-                print(charges)
-                self.output.append((name, count, data_from_atoms, charges))
+                denominator = 0.0
+                numerator = 0.0
+                for i in range(deviation_away_pt.shape[0]):
+                    for j in range(deviation_away_pt.shape[0]):
+                        denominator += deviation_away_pt[j]/tb_hardness[j]
+                        numerator += (deviation_away_pt[j]**2)/((tb_hardness[j]**3) * covalent_radii[j])
+                        print(covalent_radii[j])
+                dm = denominator/numerator
+                print(deviation_away_pt.shape[0])
+                charges_electrons = (deviation_away_pt/tb_hardness)-(((deviation_away_pt**2)*dm)/(
+                    (tb_hardness**3)*covalent_radii))
+                shift = 0
+                charge_elements = Counter()
+                for element, number in molecule.elements_count:
+                    for index in range(molecule.elements_count[element, number]):
+                        charge_elements[element, number] += float(charges_electrons[index + shift])
+                    shift += molecule.elements_count[element, number]
+                    data_from_atoms.append((element, number))
+                print(charge_elements)
+                self.output.append((name, count, data_from_atoms, charge_elements))
         except KeyError:
             print("Something wrong with calculate")
 
     def save_charges(self, new_file):
         data = self.output
+        print("255sssss-----")
         self.new_file = "result/" + new_file
         with open(self.new_file, "w") as f:
             for name, count, atoms, charges in data:
+                print(name)
                 print("{}\n{}".format(name, int(count)), file=f)
-                for i, (atom, bond) in enumerate(atoms):
-                    print(atom, bond, charges[i])
-                    print("{0:<1} {1:<3} {2: 5f}".format(atom, bond, float(charges[i])), file=f)
+                for index, (atom, bond) in enumerate(atoms, 1):
+                    print(atom, bond, charges[atom, index])
+                    print("{0:<1} {1:<3} {2: 5f}".format(atom, bond, float(charges[atom, index])), file=f)
         print("Now you can find charge for each element in file {}".format(self.new_file))
 
     def give_result(self):
