@@ -14,7 +14,7 @@ def main():
     parser_graph.add_argument("draw_graph", type=str, nargs=2, default=0,
                               help="Give two charges results file, if you have not it, you can used CALCULATION")
     parser_calculate = subparsers.add_parser('calculation')
-    parser_calculate.add_argument('calculate', type=str, nargs='?', default=0,
+    parser_calculate.add_argument('calculate', type=str, nargs="?", default=0,
                                   help="Give one file with molecules (.sdf) for MGCHM and "
                                        "one file with parameters for EEM (.xml)")
     parser_calculate.add_argument('--eem', action="store_true",
@@ -23,6 +23,8 @@ def main():
                                   help="Give this argument, if you want calculate with MGCHM")
     parser_calculate.add_argument('--ogchm', action="store_true",
                                   help="Give this argument, if you want calculate with OGCHM")
+    parser_calculate.add_argument('--parameters', type=str, help="Give this argument for parameters,"
+                                                                 " if you want calculate with EEM")
     parser_calculate.add_argument('--output', type=str, help="Give a name file, for output calculate")
     parser_structure = subparsers.add_parser('structure')
     parser_structure.add_argument('--parameters', type=str, help="Give a file with parameters (EEM) (.xml)")
@@ -35,7 +37,7 @@ def main():
         if args.calculate:
             mset = classes.MoleculesSet()
             if args.eem:
-                set_file, para_file = args.calculate
+                set_file, para_file = args.calculate, args.parameters
                 mset.load_parameters(para_file)
                 mset.load_from_sdf(set_file, args.eem, args.mgchm, args.ogchm)
                 cal = eem.Calculate(mset.molecules, mset.parameters)
