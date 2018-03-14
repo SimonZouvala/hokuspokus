@@ -52,7 +52,7 @@ def compare_data(data1, data2):
 
 
 def graph(ready1, ready2, filenames):
-    fig, ax = plt.subplots(figsize=(12, 12))
+    fig, ax = plt.subplots(figsize=(12,12))
     minimum, maximum = draw_data(ready1, ready2)
     ax.legend(loc=2)
     ax.yaxis.set_minor_locator(AutoMinorLocator())
@@ -61,8 +61,8 @@ def graph(ready1, ready2, filenames):
     ax.xaxis.set_major_locator(LinearLocator())
     plt.tick_params(which='major', length=5, width=2)
     plt.tick_params(which='minor', length=5)
-    plt.xlim(minimum - 0.5, maximum + 0.5)
-    plt.ylim(minimum - 0.5, maximum + 0.5)
+    plt.xlim(minimum - 0.05, maximum + 1.8)
+    plt.ylim(minimum - 0.05, maximum + 1.8)
     ax.set_title("Correlation graph")
     ax.set_ylabel("Charge from {}".format(filenames[1]))
     ax.set_xlabel("Charge from {}".format(filenames[0]))

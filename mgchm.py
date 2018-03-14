@@ -20,22 +20,23 @@ class Calculate:
                 deviation_away_pt = nk_electronegativity-pt_electronegativity
                 geometric_mean = np.sum(nk_electronegativity)/count
                 charges = deviation_away_pt * (1/geometric_mean)
-                print("Q = Charges")
-                print(charges)
+                #print("Q = Charges")
+                #print(charges)
                 self.output.append((name, count, data_from_atoms, charges))
         except KeyError:
             print("Something wrong with calculate")
 
-    def save_charges(self, new_file):
+    def save_charges(self, file):
         data = self.output
-        self.new_file = "result/" + new_file
-        with open(self.new_file, "w") as f:
+        new_file = "result/" + file
+        with open(new_file, "w") as f:
             for name, count, atoms, charges in data:
+                print(name)
                 print("{}\n{}".format(name, int(count)), file=f)
                 for i, (atom, bond) in enumerate(atoms):
                     print(atom, bond, charges[i])
-                    print("{0:<1} {1:<3} {2: 5f}".format(atom, bond, float(charges[i])), file=f)
-        print("Now you can find charge for each element in file {}".format(self.new_file))
+                    print("{0:6d}  {1:>2}{2} {3: f}".format(i + 1, atom, bond, float(charges[i])), file=f)
+        print("Now you can find charge for each element in file {}".format(new_file))
 
     def give_result(self):
         return self.output

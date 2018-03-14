@@ -44,10 +44,10 @@ class Calculate:
         except KeyError:
             print("Something wrong with calculate")
 
-    def save_charges(self, new_file):
+    def save_charges(self, file):
         data_for_graph, data = [], self.output
-        self.new_file = "result/" + new_file
-        with open(self.new_file, "w") as f:
+        new_file = "result/" + file
+        with open(new_file, "w") as f:
             for name, count, atoms, charges, parameters in data:
                 try:
                     print("{}\n{}".format(name, int(count)), file=f)
@@ -57,7 +57,7 @@ class Calculate:
                     data_for_graph.append((name, count, atoms, charges, parameters))
                 except ValueError:
                     continue
-        print("Now you can find charge for each element in file {}".format(self.new_file))
+        print("Now you can find charge for each element in file {}".format(new_file))
 
     def give_result(self):
         return self.output

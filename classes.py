@@ -18,13 +18,18 @@ class Atom:
 
 class Molecule:
 
-    def __init__(self, name, count_atoms, atoms, elements_count, count_bond_matrix, bond_matrix):
+    def __init__(self, name, count_atoms, atoms, elements_count, count_bond_matrix, bond_matrix,
+                 tb_el=np.ndarray(shape=(0, 0)), tb_hard=np.ndarray(shape=(0, 0)), tb_coval_radii=np.ndarray(shape=(
+                    0, 0))):
         self.name = name
         self.count_atoms = count_atoms
         self.atoms = atoms
         self.elements_count = elements_count
         self.count_bond_matrix = count_bond_matrix
         self.bond_matrix = bond_matrix
+        self.tb_el = tb_el
+        self.tb_hard = tb_hard
+        self.tb_coval_radii = tb_coval_radii
 
     def __str__(self):
         return str("Molecule name: {}\n{}".format(self.name, self.atoms))
@@ -43,9 +48,6 @@ class MoleculesSet:
                         self.molecules = molecules
                         if mgchm:
                             self.periodic_table = get_electronegativity_from_periodic_table(set(find_elements))
-                        if ogchm:
-                            self.tb_el = table_electronegativity
-                            self.tb_hard = table_hardness
                         return print("Load molecules from {}".format(filename))
                     name = (line[:].strip())
                     for i in range(2):
@@ -79,87 +81,103 @@ class MoleculesSet:
                             bond_matrix[index1, index2] = bond_matrix[index2, index1] = bond
                             count_bond_matrix[index1, index1] += bond
                             count_bond_matrix[index2, index2] += bond
-                        if ogchm:
-                            orbital_electrons[0] = []
-                            position1 = position2 = 0
-                            for valence in range(0, first_atom):
-                                position1 += len(orbital_electrons[valence])
-                            for valence in range(0, second_atom):
-                                position2 += len(orbital_electrons[valence])
-                            for number_element, position in zip([first_atom, second_atom], [position1, position2]):
-                                covalent_radius[find_elements[number_element - 1],
-                                                bond] = get_covalent_radii(find_elements[number_element - 1], bond)
-                                if max_bond[number_element] == bond:
-                                    state_text, filled_type_state, non_binding_pair, sigma = [], 1, 0, 0
-                                    valence_electrons = len(orbital_electrons[number_element])
-                                    electron_states = ["s", "di", "tr", "te"]
-                                    if bond == 1:
-                                        if valence_electrons in [1, 2, 3, 4]:
-                                            for x in range(valence_electrons):
-                                                state_text.append(electron_states[valence_electrons - 1])
-                                                index_state = valence_electrons - 1
-                                                non_binding_pair = 4
-                                                sigma += 1
-                                        else:
-                                            for y in range(valence_electrons//4):
-                                                state_text.append(electron_states[valence_electrons - 1] + "2")
-                                                non_binding_pair += 1
-                                                index_state = 3
-                                                sigma += 1
-                                    else:
-                                        for x in range(bond - 1):
-                                            state_text.append("pi")
-                                            valence_electrons -= 1
+                        try:
+                            if ogchm:
+                                orbital_electrons[0] = []
+                                position1 = position2 = 0
+                                for valence in range(0, first_atom):
+                                    position1 += len(orbital_electrons[valence])
+                                for valence in range(0, second_atom):
+                                    position2 += len(orbital_electrons[valence])
+                                for number_element, position in zip([first_atom, second_atom], [position1, position2]):
+                                    covalent_radius[elements[number_element - 1],
+                                                    bond] = get_covalent_radii(elements[number_element - 1], bond)
+                                    if max_bond[number_element] == bond:
+                                        state_text, filled_type_state, non_binding_pair, sigma = [], 1, 0, 0
+                                        valence_electrons = len(orbital_electrons[number_element])
+                                        long_state, index_state, text, filled = 4, 1, "", 0
+                                        electron_states = ["s", "di", "tr", "te"]
+                                        if bond > 1:
+                                            for x in range(bond - 1):
+                                                state_text.append("pi")
+                                                filled_type_state += 1
+                                                filled += 1
+                                            state_text.insert(0, electron_states[-filled_type_state])
+                                            index_state = filled_type_state
                                             filled_type_state += 1
-                                        state_text.insert(0, electron_states[-filled_type_state])
-                                        valence_electrons -= 1
-                                        index_state = -filled_type_state
-                                    if ((valence_electrons - sigma)/2) >= 1:
-                                        for y in range(valence_electrons//2):
-                                            state_text.append(electron_states[-filled_type_state] + "2")
-                                            non_binding_pair += 1
-                                    for y in range(4 - filled_type_state - non_binding_pair):
-                                        state_text.append(electron_states[index_state])
-                                    electronegativity, hardness = get_electronnegativity_and_hardness(
-                                        state_text, find_elements[number_element - 1])
-                                    valence_state[number_element] = state_text
-                                    for move, state in enumerate(state_text):
-                                        table_electronegativity[position + move][0] = electronegativity[
-                                            find_elements[number_element - 1], state]
-                                        table_hardness[position + move][0] = hardness[find_elements[number_element - 1],
-                                                                                      state]
-                                        matrix_covalent_radii[position + move][0] = covalent_radius[find_elements[number_element - 1], bond]
-                                        if "2" in state:
-                                            delete_rows.append(int(position + move + 1))
-                            for x in range(bond):
-                                bond_matrix[position1 + shift[first_atom]][position2 + shift[second_atom]] = \
-                                    bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
-                                shift[first_atom] += 1
-                                shift[second_atom] += 1
-
-                    if ogchm:
-                        for row in delete_rows:
-                            table_electronegativity = np.delete(table_electronegativity, row, 0)
-                            table_hardness = np.delete(table_hardness, row, 0)
-                            matrix_covalent_radii = np.delete(matrix_covalent_radii, row, 0)
-                        position = 0
-                        self.covalent_radii = matrix_covalent_radii
-                        for valence_electron in orbital_electrons:
-                            if len(orbital_electrons[valence_electron]) > (shift[valence_electron] + 1):
-                                total_binding_pairs = (len(orbital_electrons[
-                                                               valence_electron]) - shift[valence_electron])//2
-                                orbital_electrons[valence_electron].pop(-total_binding_pairs)
+                                            filled += 1
+                                            divisor = 2
+                                        else:
+                                            divisor = 4
+                                            if valence_electrons in [1, 2, 3, 4]:
+                                                index_state = 4 - (valence_electrons - 1)
+                                                long_state = valence_electrons
+                                                filled = valence_electrons
+                                        if ((valence_electrons - filled)/divisor) >= 1 and (
+                                                    valence_electrons - filled) > (
+                                                            long_state - filled_type_state + 1 - non_binding_pair):
+                                            for y in range((valence_electrons - filled)-(
+                                                                long_state - filled_type_state + 1 - non_binding_pair)):
+                                                state_text.append(electron_states[-index_state] + "2")
+                                                text = electron_states[-index_state] + "2"
+                                                non_binding_pair += 1
+                                        for y in range(long_state - filled_type_state + 1 - non_binding_pair):
+                                            state_text.append(electron_states[-index_state])
+                                        electronegativity, hardness = get_electronnegativity_and_hardness(
+                                            state_text, elements[number_element - 1])
+                                        valence_state[number_element] = state_text
+                                        if text:
+                                            for x in range(non_binding_pair):
+                                                state_text.append(state_text.pop(state_text.index(text)))
+                                        dive = 1
+                                        for move, state in enumerate(state_text):
+                                            table_electronegativity[position + move][0] = electronegativity[
+                                                elements[number_element - 1], state]
+                                            table_hardness[position + move][0] = hardness[elements[number_element - 1],
+                                                                                          state]
+                                            matrix_covalent_radii[position + move][0] = covalent_radius[
+                                                elements[number_element - 1], bond]
+                                            if "2" in state:
+                                                if move <= 3:
+                                                    dive += 1
+                                                delete_rows.append(int(position + len(state_text) - 2 + dive))
+                                for x in range(bond):
+                                    bond_matrix[position1 + shift[first_atom]][position2 + shift[second_atom]] = \
+                                        bond_matrix[position2 + shift[second_atom]][position1 + shift[first_atom]] = 1
+                                    shift[first_atom] += 1
+                                    shift[second_atom] += 1
+                        except IndexError:
+                            print("Can not prepare data from ", name)
+                            break
+                    try:
+                        if ogchm:
+                            deleted = 0
+                            for row in sorted(set(delete_rows)):
+                                table_electronegativity = np.delete(table_electronegativity, row - deleted, 0)
+                                table_hardness = np.delete(table_hardness, row - deleted, 0)
+                                matrix_covalent_radii = np.delete(matrix_covalent_radii, row - deleted, 0)
                                 for columns_or_row in [0, 1]:
-                                    bond_matrix = np.delete(bond_matrix, shift[valence_electron], columns_or_row)
-                                    count_bond_matrix = np.delete(count_bond_matrix, shift[valence_electron],
-                                                                  columns_or_row)
-                            for electron1 in range(len(orbital_electrons[valence_electron])):
-                                for electron2 in range(len(orbital_electrons[valence_electron])):
-                                    if electron1 != electron2:
-                                        bond_matrix[electron1 + position, electron2 + position] = 1
-                            position += len(orbital_electrons[valence_electron])
-                        for index in range(count_bond_matrix.shape[0]):
-                            count_bond_matrix[index, index] = int(sum(bond_matrix[index, :]))
+                                    bond_matrix = np.delete(bond_matrix, row - deleted, columns_or_row)
+                                    count_bond_matrix = np.delete(count_bond_matrix, row - deleted, columns_or_row)
+                                deleted += 1
+                            position = 0
+                            for valence_electron in orbital_electrons:
+                                if len(orbital_electrons[valence_electron]) >= (shift[valence_electron] + 1):
+                                    while len(orbital_electrons[valence_electron]) > 4:
+                                        orbital_electrons[valence_electron].pop(-1)
+                                for electron1 in range(len(orbital_electrons[valence_electron])):
+                                    for electron2 in range(len(orbital_electrons[valence_electron])):
+                                        if electron1 != electron2:
+                                            bond_matrix[electron1 + position, electron2 + position] = 1
+                                position += len(orbital_electrons[valence_electron])
+                            for index in range(count_bond_matrix.shape[0]):
+                                count_bond_matrix[index, index] = int(sum(bond_matrix[index, :]))
+                    except IndexError:
+                        print("nelze pocitat pro ", name)
+                        while True:
+                            line = fh.readline()
+                            if "$$$$" in line:
+                                break
                     for number in sorted(max_bond):
                         if eem:
                             if yes_type:
@@ -167,11 +185,10 @@ class MoleculesSet:
                             else:
                                 elements_count[elements[number - 1]] += 1
                             atoms.append(Atom(number, elements[number - 1], max_bond[number], coordinate[number - 1]))
-                        if mgchm:
-                            bond = str(max_bond[number]) + "|" + str(int(count_bond_matrix[number - 1, number - 1]))
-                            atoms.append(Atom(number, elements[number - 1], bond))
-                        if ogchm:
-                            elements_count[elements[number - 1], number] = len(valence_state[number])
+                        else:
+                            if ogchm:
+                                elements_count[elements[number - 1], number] = len(valence_state[number])
+                            atoms.append(Atom(number, elements[number - 1], max_bond[number]))
                     while True:
                         line = fh.readline()
                         if "$$$$" in line:
@@ -180,16 +197,19 @@ class MoleculesSet:
                             if mgchm:
                                 elements_count = False
                             if ogchm:
-                                count_atoms = count_bond_matrix.shape[0]
-                            molecules.append(Molecule(name, count_atoms, atoms, elements_count, count_bond_matrix,
-                                                      bond_matrix))
+                                molecules.append(Molecule(name, count_atoms, atoms, elements_count, count_bond_matrix,
+                                                          bond_matrix, table_electronegativity, table_hardness,
+                                                          matrix_covalent_radii))
+                            else:
+                                molecules.append(Molecule(name, count_atoms, atoms, elements_count, count_bond_matrix,
+                                                          bond_matrix))
                             break
         except IOError:
             print("Wrong file for molecules set! Try another file than {}".format(filename))
             sys.exit(1)
 
     def load_parameters(self, file_parameters):
-        parameters_data, yes_type = [], False
+        parameters_data, yes_type, element, kappa = [], False, "", 0.0
         try:
             with open(file_parameters, "r") as fp:
                 parameters = []
@@ -288,6 +308,7 @@ def get_electronnegativity_and_hardness(state_text, element):
 
 
 def get_covalent_radii(element, bond):
+    covalent_radius = 0
     with open("data/Covalent radii.csv", "r", encoding="latin-1") as fcr:
         for line in fcr:
             if (element + "," + str(bond)) in line:
