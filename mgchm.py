@@ -1,9 +1,10 @@
 import numpy as np
+import math
 
 
 class Calculate:
     def __init__(self, molecules, periodic_table):
-        self.molecules, self.output, atom_parameter, error_molecules = molecules, [], {}, 0
+        self.molecules, self.output, atom_parameter = molecules, [], {}
         try:
             for molecule in self.molecules:
                 data_from_atoms, name, data_bond = [], molecule.name, []
@@ -18,11 +19,13 @@ class Calculate:
                     data_from_atoms.append((atom.element_symbol, atom.bond))
                 nk_electronegativity = np.linalg.solve(simplified_matrix, pt_electronegativity)
                 deviation_away_pt = nk_electronegativity-pt_electronegativity
-                geometric_mean = np.sum(nk_electronegativity)/count
+                multiple = 1
+                for electroneg in pt_electronegativity:
+                    multiple = multiple * electroneg
+                geometric_mean = multiple**(1/count)
                 charges = deviation_away_pt * (1/geometric_mean)
-                #print("Q = Charges")
-                #print(charges)
                 self.output.append((name, count, data_from_atoms, charges))
+                print("Program calculated {} molecules.".format(len(molecules)))
         except KeyError:
             print("Something wrong with calculate")
 
