@@ -1,6 +1,7 @@
 import sys
 import matplotlib.pyplot as plt
 import math
+import numpy as np
 
 from matplotlib.ticker import AutoMinorLocator, LinearLocator
 from collections import defaultdict
@@ -52,7 +53,7 @@ def compare_data(data1, data2):
 
 
 def graph(ready1, ready2, filenames):
-    fig, ax = plt.subplots(figsize=(12,12))
+    fig, ax = plt.subplots(figsize=(12, 12))
     minimum, maximum = draw_data(ready1, ready2)
     ax.legend(loc=2)
     ax.yaxis.set_minor_locator(AutoMinorLocator())
@@ -61,8 +62,8 @@ def graph(ready1, ready2, filenames):
     ax.xaxis.set_major_locator(LinearLocator())
     plt.tick_params(which='major', length=5, width=2)
     plt.tick_params(which='minor', length=5)
-    plt.xlim(minimum - 0.05, maximum + 1.8)
-    plt.ylim(minimum - 0.05, maximum + 1.8)
+    plt.xlim(minimum - 0.05, maximum + 0.05)
+    #plt.ylim(minimum - 0.05, maximum + 0.05)
     ax.set_title("Correlation graph")
     ax.set_ylabel("Charge from {}".format(filenames[1]))
     ax.set_xlabel("Charge from {}".format(filenames[0]))
@@ -70,41 +71,51 @@ def graph(ready1, ready2, filenames):
 
 
 def draw_data(element_data1, element_data2):
-    mistakes, minimum, maximum = [], 99999, -99999
+    mistakes, minimum, maximum, yminimum, ymaximum = [], 99999, -99999, 99999, -999999
+    pcc_graph = get_pcc_for_all_graph(element_data1, element_data2)
     for element1, element2 in zip(element_data1, element_data2):
+        yminimum = min(min(element_data2[element2]), yminimum)
+        ymaximum = max(max(element_data2[element2]), ymaximum)
         minimum = min(minimum, min(element_data1[element1]), min(element_data2[element2]))
-        maximum = max(minimum, max(element_data1[element1]), max(element_data2[element2]))
-        plt.scatter(element_data1[element1], element_data2[element2], marker="o", label=element1, alpha=0.5)
+        maximum = max(maximum, max(element_data1[element1]), max(element_data2[element2]))
+        plt.scatter(element_data1[element1], element_data2[element2], marker="o", label=element1, alpha=0.9)
         mistakes.append(get_mistake(element_data1[element1], element_data2[element2], element1))
-    print_mistake(mistakes)
+    plt.plot([minimum, maximum], [yminimum, ymaximum * pcc_graph])
+    print_mistake(mistakes, pcc_graph)
     return minimum, maximum
 
 
-def print_mistake(mistakes):
-    print("Element         NEAM     MAXIMUM     RMSD        PCC")
-    for element, neam, maximum, rmsd, pcc in mistakes:
-        print("{:<10} {: >9.3} {: >11.3} {: >8.3} {: >10.3}".format(element, neam, maximum, rmsd, pcc))
+def print_mistake(mistakes, pcc_graph):
+    print("Element          MAD     MAXIMUM     RMSD        PCC")
+    for element, mad, maximum, rmsd, pcc in mistakes:
+        print("{:<10} {: >9.3} {: >11.3} {: >8.3} {: >10.3}".format(element, mad, maximum, rmsd, pcc))
+    print("r = {}". format(pcc_graph))
 
 
 def get_mistake(charges1, charges2, element):
-    count, maximum, d, data_for_rmsd, sum_x, sum_y, rmsd_x, rmsd_y, covariance = 0, abs(charges1[0] - charges2[0]),\
-                                                                                   0, 0, 0, 0, 0, 0, 0
+    maximum, data_for_rmsd, sum_x, sum_y = abs(charges1[0] - charges2[0]), 0, 0, 0
+    charges = charges1 + charges2
+    value = 0
+    data_x, data_y = [], []
     for x, y in zip(charges1, charges2):
-        count += abs(x - y)
         maximum = max(maximum, abs(x - y))
         sum_x += x
         sum_y += y
-    mean = count/len(charges1)
-    average_x = sum_x/(len(charges1))
-    average_y = sum_y/len(charges1)
+    mean = (sum_x+sum_y)/(len(charges1)+len(charges2))
+    for charge in charges:
+        value += abs(charge - mean)
+    mad = value/len(charges)
     for x, y in zip(charges1, charges2):
-        data_for_rmsd += (abs(x - y) - mean)**2
-        rmsd_x += (x - average_x)**2
-        rmsd_y += (y - average_y)**2
-        covariance += (x - average_x) * (y - average_y)
+        data_for_rmsd += (x - y)**2
+        data_x.append(x)
+        data_y.append(y)
     rmsd = math.sqrt((data_for_rmsd/len(charges1)))
-    pcc = covariance/math.sqrt(rmsd_x * rmsd_y)
-    return [element, mean, maximum, rmsd, pcc]
+    try:
+        pcc = np.corrcoef(data_x, data_y)[1, 0]
+    except ArithmeticError:
+        pcc = 0.0
+        pass
+    return [element, mad, maximum, rmsd, pcc]
 
 
 def prepare_data(crude_data):
@@ -114,3 +125,13 @@ def prepare_data(crude_data):
         for e in set(elements):
             element_data[e].extend(list([charge for element, charge in molecule if element == e]))
     return element_data
+
+
+def get_pcc_for_all_graph(charges1, charges2):
+    data_x, data_y = [], []
+    for i, j in zip(charges1, charges2):
+        for x, y in zip(charges1[i], charges2[j]):
+            data_x.append(x)
+            data_y.append(y)
+    pearr = np.corrcoef(data_x, data_y)[1, 0]
+    return pearr
