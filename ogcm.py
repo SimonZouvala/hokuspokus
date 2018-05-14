@@ -67,7 +67,7 @@ class Calculate:
             sys.exit()
         print("Program calculated {} molecules.".format(not_error_molecules))
 
-    def save_charges(self, file): # uložení do souboru
+    def save_charges(self, file):  # uložení do souboru
         data = self.output
         new_file = "result/" + file
         with open(new_file, "w") as f:

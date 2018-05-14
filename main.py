@@ -66,7 +66,7 @@ def main():
             mset = classes.MoleculesSet()
             mset.load_from_sdf(args.molecules, True, False, False, args.nobond)  # True aby se chovalo jako při --eem
             stat.get_statistic_from_set(args.molecules, mset.molecules, args.nobond)  # vypsání struktury
-        if args.parameters: # vypsání struktury parametrů
+        if args.parameters:  # vypsání struktury parametrů
             mset = classes.MoleculesSet()
             mset.load_parameters(args.parameters)  # načtení parametrů
             stat = statistic.Statistic()
