@@ -1,0 +1,42 @@
+Element and its state,Element in bond,Orbital EN [V],Orbital hardness[V/e]
+H,s,s,7.18,6.422
+Li,s,s,3.01,2.386
+Be,di di,di,4.79,3.794
+B,tr tr tr,tr,6.31,4.978
+C,te te te te,te,8.06,6.565
+C,tr tr tr pi,tr,8.87,6.766
+C,tr tr tr pi,pi,5.67,5.499
+C,di di pi pi,di,10.47,6.972
+C,di di pi pi,pi,5.73,5.473
+N,te2 te te te,te,11.49,7.456
+N,te2 te te te,te2,4.57,9.580
+N,tr2 tr tr pi,tr,12.82,7.800
+N,tr2 tr tr pi,pi,7.90,6.238
+N,tr2 tr tr pi,tr2,5.34,9.769
+N,di2 di pi pi,di,15.59,8.327
+N,di2 di pi pi,pi,7.87,6.325
+N,di2 di pi pi,di2,7.37,9.885
+O,te2 te2 te te,te,15.25,9.150
+O,te2 te2 te te,te2,7.88,10.825
+O,tr2 tr2 tr pi,tr,17.06,9.595
+O,tr2 tr2 tr pi,pi,10.08,7.622
+O,tr2 tr2 tr pi,tr2,8.96,10.825
+F,te2 te2 te2 te,te,13.24,8.630
+F,te2 te2 te2 te,te2,18.16,8.180
+Si,te te te te,te,7.26,4.557
+P,te2 te te te,te,8.89,5.679
+P,te2 te te te,te2,6.12,5.973
+P,te te te te pi,te,11.70,6.005
+P,te te te te pi,pi,1.79,1.800
+S,te2 te2 te te,te,10.14,5.361
+S,te2 te2 te te,te2,6.59,7.045
+S,tr2 tr2 tr pi,tr,10.89,5.445
+S,tr2 tr2 tr pi,pi,7.73,4.972
+S,tr2 tr2 tr pi,tr2,7.04,7.100
+Cl,te2 te2 te2 te,te,10.52,5.610
+Cl,te2 te2 te2 te,te2,12.27,5.460
+Ge,te te te te,te,8.07,3.408
+Br,te2 te2 te2 te,te,9.03,4.730
+Br,te2 te2 te2 te,te2,11.36,4.510
+I,te2 te2 te2 te,te,8.66,4.460
+I,te2 te2 te2 te,te2,10.35,3.960
